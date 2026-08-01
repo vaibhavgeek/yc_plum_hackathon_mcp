@@ -3,171 +3,870 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MCP Voice Client</title>
+  <title>Hawkeye · Voice Health Assistant</title>
   <style>
+    /* -----------------------------------------------------------
+       Design system — warm clinical, light, calming
+       ----------------------------------------------------------- */
     :root {
-      --bg: #0b0d10;
-      --panel: #14181d;
-      --border: #232a33;
-      --text: #e8ecf1;
-      --muted: #8a94a3;
-      --accent: #4ea1ff;
-      --accent-hot: #ff4e6a;
-      --ok: #7fd67f;
-      --err: #ff8080;
-      --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+      --bg:            #f6f4ef;
+      --bg-panel:      #ffffff;
+      --bg-sunk:       #f0ede6;
+      --bg-hover:      #ecf6f4;
+      --border:        #e6e0d4;
+      --border-strong: #d5cec0;
+      --ink:           #1e2a2e;
+      --ink-2:         #40525a;
+      --muted:         #7a8a90;
+      --muted-2:       #a8b3b7;
+      --accent:        #0f766e;   /* teal-700 */
+      --accent-2:      #14b8a6;   /* teal-500 */
+      --accent-soft:   #e6f3f1;
+      --accent-hot:    #d97706;   /* amber-600 */
+      --ok:            #15803d;
+      --err:           #b91c1c;
+      --err-soft:      #fdecec;
+      --shadow-sm:     0 1px 2px rgba(30, 42, 46, 0.04);
+      --shadow-md:     0 4px 16px rgba(30, 42, 46, 0.06), 0 1px 3px rgba(30, 42, 46, 0.04);
+      --shadow-lg:     0 12px 40px rgba(30, 42, 46, 0.09), 0 2px 6px rgba(30, 42, 46, 0.04);
+      --radius:        14px;
+      --radius-sm:     10px;
+      --radius-pill:   999px;
+      --sans:          -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      --serif:         "Iowan Old Style", "Charter", "Georgia", serif;
+      --mono:          ui-monospace, "SF Mono", Menlo, Consolas, monospace;
     }
     * { box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
       margin: 0;
-      min-height: 100vh;
       background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    button { font-family: inherit; }
+    a { color: var(--accent); }
+
+    /* -----------------------------------------------------------
+       Layout: sidebar + main + sticky composer
+       ----------------------------------------------------------- */
+    .app {
+      display: grid;
+      grid-template-columns: 288px 1fr;
+      grid-template-rows: 1fr auto;
+      min-height: 100vh;
+    }
+    .sidebar {
+      grid-row: 1 / span 2;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-head {
+      padding: 22px 22px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--serif);
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      color: white;
+      font-family: var(--serif);
+      font-weight: 700;
+      font-size: 15px;
+      box-shadow: var(--shadow-sm);
     }
-    .app {
-      width: 100%;
-      max-width: 640px;
+    .brand-sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+      letter-spacing: 0.02em;
     }
-    h1 {
-      margin: 0 0 4px;
-      font-size: 20px;
+
+    .patient-chip {
+      margin: 18px 22px 6px;
+      padding: 12px 14px;
+      background: var(--accent-soft);
+      border: 1px solid #cfe6e2;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--ink);
+    }
+    .patient-chip .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .patient-chip .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--bg-panel);
+      color: var(--accent);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      border: 1px solid #cfe6e2;
+    }
+    .patient-chip .name { font-weight: 600; color: var(--ink); }
+    .patient-chip .meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+    .sidebar-section {
+      padding: 20px 22px 8px;
+    }
+    .sidebar-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .history {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 12px 24px;
+    }
+    .history-empty {
+      color: var(--muted);
+      font-size: 12.5px;
+      padding: 8px 10px;
+      font-style: italic;
+    }
+    .history-item {
+      display: block;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 120ms ease;
+      margin-bottom: 4px;
+    }
+    .history-item:hover { background: var(--bg-hover); }
+    .history-item.active { background: var(--accent-soft); }
+    .history-item .h-q {
+      font-size: 13px;
+      color: var(--ink);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .history-item .h-meta {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 3px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .history-tool {
+      background: var(--bg-sunk);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--ink-2);
+    }
+    .sidebar-foot {
+      padding: 14px 22px 20px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .status-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--ok);
+      margin-right: 6px;
+      box-shadow: 0 0 0 3px rgba(21, 128, 61, 0.15);
+    }
+
+    /* -----------------------------------------------------------
+       Main content area
+       ----------------------------------------------------------- */
+    .main {
+      overflow-y: auto;
+      padding: 40px 48px 180px;   /* extra bottom padding for composer */
+    }
+    .main-inner {
+      max-width: 780px;
+      margin: 0 auto;
+    }
+    .page-hd {
+      margin-bottom: 28px;
+    }
+    .page-hd h1 {
+      font-family: var(--serif);
+      font-weight: 600;
+      font-size: 30px;
+      letter-spacing: -0.015em;
+      margin: 0 0 6px;
+      color: var(--ink);
+    }
+    .page-hd .lede {
+      color: var(--muted);
+      font-size: 14.5px;
+      max-width: 60ch;
+    }
+
+    /* Empty state with example chips ------------------------------ */
+    .empty-state {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 30px;
+      text-align: left;
+      box-shadow: var(--shadow-sm);
+    }
+    .empty-state h3 {
+      margin: 0 0 6px;
+      font-family: var(--serif);
+      font-size: 19px;
+      color: var(--ink);
       font-weight: 600;
     }
-    .sub {
+    .empty-state p {
+      margin: 0 0 18px;
       color: var(--muted);
-      font-size: 13px;
-      margin-bottom: 32px;
+      font-size: 14px;
     }
-    .mic-wrap {
+    .example-chips {
       display: flex;
-      justify-content: center;
-      margin: 40px 0;
+      flex-wrap: wrap;
+      gap: 8px;
     }
-    .mic {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      border: none;
-      background: var(--accent);
-      color: white;
-      font-size: 48px;
-      cursor: pointer;
-      transition: all 120ms ease;
-      box-shadow: 0 8px 24px rgba(78, 161, 255, 0.3);
-    }
-    .mic:hover { transform: scale(1.03); }
-    .mic:active { transform: scale(0.97); }
-    .mic.recording {
-      background: var(--accent-hot);
-      box-shadow: 0 8px 24px rgba(255, 78, 106, 0.4);
-      animation: pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 8px 24px rgba(255, 78, 106, 0.4); }
-      50%      { box-shadow: 0 8px 32px rgba(255, 78, 106, 0.8); }
-    }
-    .status {
-      text-align: center;
-      color: var(--muted);
+    .example-chip {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-pill);
+      padding: 8px 14px;
       font-size: 13px;
-      min-height: 20px;
-      margin-bottom: 24px;
+      color: var(--ink-2);
+      cursor: pointer;
+      transition: all 140ms ease;
     }
+    .example-chip:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: translateY(-1px);
+    }
+    .example-chip .cx {
+      color: var(--muted);
+      margin-right: 6px;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+
+    /* -----------------------------------------------------------
+       Response cards
+       ----------------------------------------------------------- */
     .card {
-      background: var(--panel);
+      background: var(--bg-panel);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px 18px;
-      margin-bottom: 12px;
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+      animation: cardIn 260ms cubic-bezier(0.2, 0.7, 0.3, 1);
     }
-    .label {
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .card-hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-hd .qmark {
       color: var(--muted);
       font-size: 11px;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
     }
-    .transcript { font-size: 15px; }
-    .tool-name {
-      font-family: var(--mono);
+    .card-hd .q {
+      font-family: var(--serif);
+      font-size: 18px;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    .badge-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: 500;
+      background: var(--bg-sunk);
+      color: var(--ink-2);
+      white-space: nowrap;
+    }
+    .badge.tool {
+      background: var(--accent-soft);
       color: var(--accent);
-      font-size: 14px;
-    }
-    pre {
       font-family: var(--mono);
-      font-size: 13px;
-      margin: 0;
+      font-size: 11px;
+    }
+    .badge.time  { color: var(--muted); }
+    .badge.error { background: var(--err-soft); color: var(--err); }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin: 20px 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    /* Spoken response ------------------------------------------ */
+    .spoken-section {
+      background: var(--accent-soft);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px 16px;
+      margin-top: 6px;
+      position: relative;
+    }
+    .spoken-section.playing {
+      background: linear-gradient(90deg, var(--accent-soft) 0%, #fff4e6 100%);
+      border-left-color: var(--accent-hot);
+    }
+    .spoken-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .spoken-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+    }
+    .spoken-text {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--ink);
+      font-family: var(--serif);
+    }
+    /* Waveform ------------------------------------------------- */
+    .waveform {
+      display: none;
+      align-items: end;
+      gap: 3px;
+      height: 20px;
+      margin-left: auto;
+    }
+    .spoken-section.playing .waveform { display: inline-flex; }
+    .waveform span {
+      display: block;
+      width: 3px;
+      background: var(--accent);
+      border-radius: 2px;
+      animation: waveBar 0.9s ease-in-out infinite;
+    }
+    .waveform span:nth-child(1) { animation-delay: 0.00s; height: 30%; }
+    .waveform span:nth-child(2) { animation-delay: 0.10s; height: 60%; }
+    .waveform span:nth-child(3) { animation-delay: 0.20s; height: 90%; }
+    .waveform span:nth-child(4) { animation-delay: 0.30s; height: 50%; }
+    .waveform span:nth-child(5) { animation-delay: 0.15s; height: 75%; }
+    .waveform span:nth-child(6) { animation-delay: 0.25s; height: 40%; }
+    .waveform span:nth-child(7) { animation-delay: 0.05s; height: 70%; }
+    @keyframes waveBar {
+      0%, 100% { transform: scaleY(0.35); }
+      50%      { transform: scaleY(1);    }
+    }
+
+    .speak-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .icon-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--accent);
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 120ms ease;
+      padding: 0;
+    }
+    .icon-btn:hover:not(:disabled) {
+      background: rgba(15, 118, 110, 0.12);
+    }
+    .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .icon-btn svg { width: 14px; height: 14px; }
+
+    /* MCP raw response ----------------------------------------- */
+    .mcp-response {
+      background: var(--bg-sunk);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      color: var(--ink-2);
+      line-height: 1.55;
       white-space: pre-wrap;
       word-break: break-word;
-      color: var(--text);
+      max-height: 320px;
+      overflow-y: auto;
     }
-    .result pre { color: var(--ok); }
-    .error pre  { color: var(--err); }
-    .empty {
-      text-align: center;
-      color: var(--muted);
-      font-size: 13px;
-      padding: 32px 0;
-    }
-    .manual {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .manual input {
-      flex: 1;
-      background: var(--panel);
+    .mcp-response.error { background: var(--err-soft); color: var(--err); }
+
+    /* Visualization iframe ------------------------------------- */
+    .viz-frame {
+      width: 100%;
+      height: 640px;
+      max-height: 80vh;
       border: 1px solid var(--border);
-      color: var(--text);
-      padding: 10px 12px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-family: inherit;
+      border-radius: var(--radius-sm);
+      background: white;
+      margin-top: 6px;
+      box-shadow: var(--shadow-sm);
     }
-    .manual button {
-      background: var(--border);
-      border: none;
-      color: var(--text);
-      padding: 10px 16px;
-      border-radius: 8px;
+    details.source-toggle {
+      margin-top: 12px;
+    }
+    details.source-toggle summary {
       cursor: pointer;
-      font-size: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      list-style: none;
     }
-    .manual button:hover { background: #2c343f; }
+    details.source-toggle summary::before {
+      content: "›";
+      display: inline-block;
+      margin-right: 6px;
+      transition: transform 120ms ease;
+    }
+    details.source-toggle[open] summary::before { transform: rotate(90deg); }
+    details.source-toggle pre {
+      margin-top: 10px;
+      max-height: 240px;
+      overflow: auto;
+      background: var(--bg-sunk);
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--ink-2);
+    }
+
+    /* -----------------------------------------------------------
+       Live progress timeline
+       ----------------------------------------------------------- */
+    .progress-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow-sm);
+      animation: cardIn 260ms cubic-bezier(0.2, 0.7, 0.3, 1);
+    }
+    .progress-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--border-strong);
+      border-top-color: var(--accent);
+      animation: spin 720ms linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .progress-title {
+      flex: 1;
+      font-family: var(--serif);
+      font-size: 16px;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    .progress-tool {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 8px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: var(--radius-pill);
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .progress-elapsed {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .progress-steps {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0 0 6px;
+      position: relative;
+    }
+    .progress-steps::before {
+      content: "";
+      position: absolute;
+      left: 5px;
+      top: 6px;
+      bottom: 6px;
+      width: 1.5px;
+      background: linear-gradient(to bottom, var(--border) 0%, var(--border) 100%);
+    }
+    .progress-step {
+      position: relative;
+      padding: 5px 0 5px 22px;
+      font-size: 13.5px;
+      color: var(--ink-2);
+      animation: stepIn 320ms cubic-bezier(0.2, 0.7, 0.3, 1);
+    }
+    @keyframes stepIn {
+      from { opacity: 0; transform: translateX(-4px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .progress-step .dot {
+      position: absolute;
+      left: 0;
+      top: 11px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--bg-panel);
+      border: 2px solid var(--border-strong);
+      box-sizing: border-box;
+    }
+    .progress-step.active { color: var(--ink); font-weight: 500; }
+    .progress-step.active .dot {
+      border-color: var(--accent);
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.15);
+      animation: pulseDot 1.2s ease-in-out infinite;
+    }
+    @keyframes pulseDot {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.15); }
+      50%      { box-shadow: 0 0 0 7px rgba(15, 118, 110, 0.05); }
+    }
+    .progress-step.complete .dot {
+      border-color: var(--ok);
+      background: var(--ok);
+    }
+    .progress-step.complete .dot::after {
+      content: "";
+      position: absolute;
+      left: 2px;
+      top: 0;
+      width: 3px;
+      height: 6px;
+      border: solid white;
+      border-width: 0 1.5px 1.5px 0;
+      transform: rotate(45deg);
+    }
+    .progress-card.done { border-color: #c9e6d3; }
+    .progress-card.err  { border-color: #f0c9c9; }
+
+    /* -----------------------------------------------------------
+       Bottom composer
+       ----------------------------------------------------------- */
+    .composer {
+      grid-column: 2;
+      position: sticky;
+      bottom: 0;
+      background: linear-gradient(180deg, rgba(246, 244, 239, 0) 0%, var(--bg) 40%);
+      padding: 28px 48px 24px;
+      z-index: 20;
+    }
+    .composer-inner {
+      max-width: 780px;
+      margin: 0 auto;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius);
+      padding: 10px 12px 10px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: var(--shadow-lg);
+      transition: border-color 160ms ease, box-shadow 160ms ease;
+    }
+    .composer-inner:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12), var(--shadow-lg);
+    }
+    #manual-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 15px;
+      padding: 10px 0;
+      min-width: 0;
+    }
+    #manual-input::placeholder { color: var(--muted-2); }
+    .composer-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 140ms ease;
+    }
+    .composer-btn:hover { background: var(--bg-sunk); color: var(--ink); }
+    .composer-btn svg { width: 18px; height: 18px; }
+    .composer-btn.mic {
+      background: var(--accent);
+      color: white;
+    }
+    .composer-btn.mic:hover { background: var(--accent-2); color: white; }
+    .composer-btn.mic.recording {
+      background: var(--accent-hot);
+      animation: recPulse 1.3s ease-in-out infinite;
+    }
+    @keyframes recPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
+      50%      { box-shadow: 0 0 0 10px rgba(217, 119, 6, 0);   }
+    }
+    .composer-btn.send {
+      background: var(--ink);
+      color: white;
+    }
+    .composer-btn.send:hover { background: var(--ink-2); color: white; }
+    .composer-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .composer-hint {
+      max-width: 780px;
+      margin: 10px auto 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+    .composer-hint kbd {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: var(--mono);
+      font-size: 10.5px;
+    }
+
+    /* -----------------------------------------------------------
+       Utility: hidden helpers, responsive
+       ----------------------------------------------------------- */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+    }
+
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .main { padding: 28px 20px 200px; }
+      .composer { grid-column: 1; padding: 20px 20px 20px; }
+    }
   </style>
 </head>
 <body>
   <div class="app">
-    <h1>MCP Voice Client</h1>
-    <div class="sub">Tap the mic, say a command. Example: "add 2 and 3", "echo hello world".</div>
+    <!-- Sidebar --------------------------------------------------- -->
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">H</div>
+          <div>
+            Hawkeye
+            <div class="brand-sub">voice health assistant</div>
+          </div>
+        </div>
+      </div>
 
-    <div class="mic-wrap">
-      <button id="mic" class="mic" title="Hold to speak">🎤</button>
-    </div>
-    <div id="status" class="status">Ready.</div>
+      <div class="patient-chip" title="Active patient scope">
+        <div class="row">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="avatar">P</div>
+            <div>
+              <div class="name">Active patient</div>
+              <div class="meta">Patient/8cde5a84…</div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    <div class="manual">
-      <input id="manual-input" placeholder="Or type a command and press Enter…" />
-      <button id="manual-send">Send</button>
-    </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">History</div>
+      </div>
+      <div class="history" id="history">
+        <div class="history-empty">No conversations yet — ask something below.</div>
+      </div>
 
-    <div id="results" style="margin-top: 24px;">
-      <div class="empty">No commands yet.</div>
+      <div class="sidebar-foot">
+        <span class="status-dot"></span>
+        <span id="conn-status">Connected · MCP + Medplum</span>
+      </div>
+    </aside>
+
+    <!-- Main content --------------------------------------------- -->
+    <main class="main">
+      <div class="main-inner">
+        <header class="page-hd">
+          <h1>What can I help you with?</h1>
+          <p class="lede">
+            Speak or type. I&rsquo;ll pull context from the patient&rsquo;s Medplum record,
+            call the right tool, and respond with a voice summary you can play back.
+          </p>
+        </header>
+
+        <div id="results">
+          <div class="empty-state">
+            <h3>Try one of these</h3>
+            <p>Or press the mic below and speak naturally.</p>
+            <div class="example-chips" id="example-chips">
+              <button class="example-chip" type="button" data-q="Ask the doctor about the diagnosis">
+                <span class="cx">ask_doctor</span>Ask the doctor about the diagnosis
+              </button>
+              <button class="example-chip" type="button" data-q="Visualize the diagnosis">
+                <span class="cx">visualize_diagnosis</span>Show me the injury
+              </button>
+              <button class="example-chip" type="button" data-q="What insurance should I use">
+                <span class="cx">insurance_check</span>What insurance should I use?
+              </button>
+              <button class="example-chip" type="button" data-q="Echo hello world">
+                <span class="cx">echo</span>Echo hello world
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Composer ------------------------------------------------- -->
+    <div class="composer">
+      <div class="composer-inner">
+        <button id="mic" class="composer-btn mic" type="button" title="Hold to speak" aria-label="Record voice command">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8"  y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+        <input id="manual-input" placeholder="Ask about the patient, visualize a diagnosis, or check insurance…" autocomplete="off" />
+        <button id="stop-audio" class="composer-btn" type="button" title="Stop voice playback" aria-label="Stop voice playback">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="6" width="12" height="12" rx="2"/>
+          </svg>
+        </button>
+        <button id="manual-send" class="composer-btn send" type="button" title="Send" aria-label="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+      <div class="composer-hint">
+        <div id="status">Ready to listen.</div>
+        <div><kbd>Enter</kbd> to send · <kbd>Space</kbd> mic on focus</div>
+      </div>
     </div>
   </div>
 
   <script>
-    const micBtn = document.getElementById('mic');
-    const statusEl = document.getElementById('status');
-    const resultsEl = document.getElementById('results');
-    const manualInput = document.getElementById('manual-input');
-    const manualSend = document.getElementById('manual-send');
+    // ============================================================
+    // DOM refs
+    // ============================================================
+    const micBtn        = document.getElementById('mic');
+    const statusEl      = document.getElementById('status');
+    const resultsEl     = document.getElementById('results');
+    const historyEl     = document.getElementById('history');
+    const manualInput   = document.getElementById('manual-input');
+    const manualSend    = document.getElementById('manual-send');
+    const stopAudioBtn  = document.getElementById('stop-audio');
+    const exampleChips  = document.getElementById('example-chips');
 
+    let currentAudio = null;
+
+    stopAudioBtn.addEventListener('click', () => {
+      if (currentAudio) {
+        try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (_) {}
+      }
+      document.querySelectorAll('.spoken-section.playing').forEach(el => el.classList.remove('playing'));
+    });
+
+    // Example chip clicks -> populate input & send
+    exampleChips?.addEventListener('click', (e) => {
+      const chip = e.target.closest('.example-chip');
+      if (!chip) return;
+      const q = chip.dataset.q;
+      if (q) sendTranscript(q);
+    });
+
+    // ============================================================
+    // Web Speech API
+    // ============================================================
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let recording = false;
@@ -189,9 +888,8 @@
       };
       recognition.onend = () => setRecording(false);
     } else {
-      statusEl.textContent = 'Web Speech API not supported. Use the text box below.';
+      statusEl.textContent = 'Web Speech API not supported — use the text box.';
       micBtn.disabled = true;
-      micBtn.style.opacity = 0.4;
     }
 
     function setRecording(on) {
@@ -217,44 +915,324 @@
       if (e.key === 'Enter' && manualInput.value.trim()) sendTranscript(manualInput.value.trim());
     });
 
+    // ============================================================
+    // Send pipeline (SSE)
+    // ============================================================
     async function sendTranscript(transcript) {
       statusEl.textContent = 'Thinking…';
+      manualInput.value = '';
+
+      // Remove empty state.
+      const empty = resultsEl.querySelector('.empty-state');
+      if (empty) empty.remove();
+
+      // Build a live-updating progress card.
+      const progressCard = document.createElement('div');
+      progressCard.className = 'progress-card';
+      progressCard.innerHTML = `
+        <div class="progress-header">
+          <div class="spinner"></div>
+          <div class="progress-title">${escapeHtml(transcript)}</div>
+          <div class="progress-elapsed" data-elapsed>0.0s</div>
+        </div>
+        <ul class="progress-steps"></ul>
+      `;
+      resultsEl.prepend(progressCard);
+
+      const stepsEl   = progressCard.querySelector('.progress-steps');
+      const titleEl   = progressCard.querySelector('.progress-title');
+      const elapsedEl = progressCard.querySelector('[data-elapsed]');
+      const startedAt = performance.now();
+      const elapsedTimer = setInterval(() => {
+        const s = ((performance.now() - startedAt) / 1000).toFixed(1);
+        elapsedEl.textContent = `${s}s`;
+      }, 100);
+
+      function appendStep(text) {
+        const prev = stepsEl.querySelector('.progress-step.active');
+        if (prev) { prev.classList.remove('active'); prev.classList.add('complete'); }
+        const li = document.createElement('li');
+        li.className = 'progress-step active';
+        li.innerHTML = `<span class="dot"></span><span>${escapeHtml(text)}</span>`;
+        stepsEl.appendChild(li);
+      }
+
+      function annotateToolPicked(tool) {
+        titleEl.innerHTML = `${escapeHtml(transcript)}<span class="progress-tool">${escapeHtml(tool)}</span>`;
+      }
+
       try {
-        const res = await fetch('/voice', {
+        const res = await fetch('/voice/stream', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Accept': 'text/event-stream' },
           body: JSON.stringify({ transcript }),
         });
-        const data = await res.json();
-        renderResult(data);
-        statusEl.textContent = 'Ready.';
-        manualInput.value = '';
+        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let finalData = null;
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let sepIdx;
+          while ((sepIdx = buffer.indexOf('\n\n')) !== -1) {
+            const frame = buffer.slice(0, sepIdx);
+            buffer = buffer.slice(sepIdx + 2);
+
+            let event = 'message';
+            let data = '';
+            for (const line of frame.split('\n')) {
+              if (line.startsWith('event: ')) event = line.slice(7);
+              else if (line.startsWith('data: ')) data += line.slice(6);
+            }
+            if (!data) continue;
+            let payload;
+            try { payload = JSON.parse(data); } catch { continue; }
+
+            if (event === 'progress')       appendStep(payload.step);
+            else if (event === 'tool_selected') {
+              annotateToolPicked(payload.tool);
+              appendStep(`Selected tool: ${payload.tool}`);
+            }
+            else if (event === 'done')      finalData = payload;
+          }
+        }
+
+        clearInterval(elapsedTimer);
+
+        const last = stepsEl.querySelector('.progress-step.active');
+        if (last) { last.classList.remove('active'); last.classList.add('complete'); }
+        progressCard.classList.add(finalData && finalData.error ? 'err' : 'done');
+
+        const totalMs = performance.now() - startedAt;
+        elapsedEl.textContent = `${(totalMs / 1000).toFixed(1)}s`;
+
+        if (finalData) {
+          renderResult(finalData, progressCard);
+          addHistoryItem(finalData, progressCard);
+        }
+        statusEl.textContent = 'Ready to listen.';
       } catch (err) {
+        clearInterval(elapsedTimer);
+        progressCard.classList.add('err');
+        appendStep('Error: ' + err.message);
         statusEl.textContent = 'Error: ' + err.message;
       }
     }
 
-    function renderResult(data) {
-      const empty = resultsEl.querySelector('.empty');
-      if (empty) empty.remove();
-
+    // ============================================================
+    // Result rendering
+    // ============================================================
+    function renderResult(data, progressCard) {
       const card = document.createElement('div');
       card.className = 'card';
 
-      const parts = [];
-      parts.push(`<div class="label">Transcript</div><div class="transcript">${escapeHtml(data.transcript || '')}</div>`);
+      const output = (data.result || []).join('\n');
+      const isHtml = !data.error && isHtmlDocument(output);
+
+      // Header: question + badges
+      const badges = [];
+      if (data.tool)  badges.push(`<span class="badge tool">${escapeHtml(data.tool)}()</span>`);
+      badges.push(`<span class="badge time">${formatNow()}</span>`);
+      if (data.isError || data.error) badges.push(`<span class="badge error">error</span>`);
+
+      const header = `
+        <div class="card-hd">
+          <div>
+            <div class="qmark">You asked</div>
+            <div class="q">${escapeHtml(data.transcript || '')}</div>
+          </div>
+          <div class="badge-row">${badges.join('')}</div>
+        </div>
+      `;
+
+      const parts = [header];
 
       if (data.error) {
-        parts.push(`<div class="label" style="margin-top:12px">Error</div><div class="error"><pre>${escapeHtml(data.error)}</pre></div>`);
-      } else {
-        parts.push(`<div class="label" style="margin-top:12px">Tool</div><div class="tool-name">${escapeHtml(data.tool)}(${escapeHtml(JSON.stringify(data.arguments))})</div>`);
-        const cls = data.isError ? 'error' : 'result';
-        const output = (data.result || []).join('\n');
-        parts.push(`<div class="label" style="margin-top:12px">MCP Response</div><div class="${cls}"><pre>${escapeHtml(output)}</pre></div>`);
+        parts.push(`<div class="section-label">Error</div>`);
+        parts.push(`<div class="mcp-response error">${escapeHtml(data.error)}</div>`);
+        card.innerHTML = parts.join('');
+        insertResultCard(card, progressCard);
+        return;
       }
 
+      // Spoken response (with waveform)
+      if (data.spoken_text || data.audio_mp3_base64) {
+        parts.push(renderSpokenSection(data));
+      }
+
+      if (isHtml) {
+        parts.push(`<div class="section-label">Visualization</div>`);
+        card.innerHTML = parts.join('');
+        wireSpokenSection(card, data);
+        const iframe = document.createElement('iframe');
+        iframe.className = 'viz-frame';
+        iframe.sandbox = 'allow-same-origin';
+        iframe.srcdoc = output;
+        card.appendChild(iframe);
+
+        const details = document.createElement('details');
+        details.className = 'source-toggle';
+        details.innerHTML = `
+          <summary>View HTML source</summary>
+          <pre>${escapeHtml(output)}</pre>
+        `;
+        card.appendChild(details);
+        insertResultCard(card, progressCard);
+        return;
+      }
+
+      parts.push(`<div class="section-label">MCP response</div>`);
+      const cls = data.isError ? 'mcp-response error' : 'mcp-response';
+      parts.push(`<div class="${cls}">${escapeHtml(output)}</div>`);
+
       card.innerHTML = parts.join('');
-      resultsEl.prepend(card);
+      wireSpokenSection(card, data);
+      insertResultCard(card, progressCard);
+    }
+
+    function renderSpokenSection(data) {
+      const spoken = escapeHtml(data.spoken_text || '');
+      return `
+        <div class="section-label">Spoken response</div>
+        <div class="spoken-section">
+          <div class="spoken-header">
+            <div class="spoken-title">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+              Assistant
+              <div class="waveform"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            </div>
+            <div class="speak-controls">
+              <button class="icon-btn" data-role="play" type="button" title="Play again" aria-label="Play again">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              </button>
+              <button class="icon-btn" data-role="stop" type="button" title="Stop" aria-label="Stop">
+                <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="spoken-text">${spoken || '<span style="color:var(--muted);font-style:italic;">No summary generated.</span>'}</div>
+        </div>
+      `;
+    }
+
+    function wireSpokenSection(card, data) {
+      const sec = card.querySelector('.spoken-section');
+      if (!sec) return;
+
+      const playBtn = sec.querySelector('[data-role="play"]');
+      const stopBtn = sec.querySelector('[data-role="stop"]');
+
+      const b64 = data.audio_mp3_base64;
+      if (!b64) {
+        playBtn.disabled = true;
+        stopBtn.disabled = true;
+        return;
+      }
+
+      const audio = new Audio('data:audio/mpeg;base64,' + b64);
+
+      const play = () => {
+        if (currentAudio && currentAudio !== audio) {
+          try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (_) {}
+        }
+        document.querySelectorAll('.spoken-section.playing').forEach(el => el.classList.remove('playing'));
+        currentAudio = audio;
+        sec.classList.add('playing');
+        audio.currentTime = 0;
+        audio.play().catch(err => {
+          console.warn('autoplay blocked:', err);
+          sec.classList.remove('playing');
+        });
+      };
+
+      const stop = () => {
+        try { audio.pause(); audio.currentTime = 0; } catch (_) {}
+        sec.classList.remove('playing');
+      };
+
+      audio.addEventListener('ended', () => sec.classList.remove('playing'));
+      playBtn.addEventListener('click', play);
+      stopBtn.addEventListener('click', stop);
+
+      play(); // auto-play
+    }
+
+    function insertResultCard(card, progressCard) {
+      if (progressCard && progressCard.parentNode) {
+        progressCard.parentNode.insertBefore(card, progressCard.nextSibling);
+        collapseProgressCard(progressCard);
+      } else {
+        resultsEl.prepend(card);
+      }
+    }
+
+    function collapseProgressCard(progressCard) {
+      const steps = progressCard.querySelectorAll('.progress-step');
+      const count = steps.length;
+      const elapsed = progressCard.querySelector('[data-elapsed]')?.textContent || '';
+      const isErr = progressCard.classList.contains('err');
+      const stepsHtml = Array.from(steps).map(s => s.outerHTML).join('');
+      const dotColor = isErr ? 'var(--err)' : 'var(--ok)';
+      progressCard.innerHTML = `
+        <details>
+          <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;">
+            <div class="spinner" style="animation:none;border-color:${dotColor};border-top-color:${dotColor};"></div>
+            <div style="flex:1;font-size:12.5px;color:var(--muted);">
+              ${count} step${count === 1 ? '' : 's'} · ${escapeHtml(elapsed)} — click to expand
+            </div>
+          </summary>
+          <ul class="progress-steps" style="margin-top:12px;">${stepsHtml}</ul>
+        </details>
+      `;
+    }
+
+    // ============================================================
+    // Sidebar history
+    // ============================================================
+    function addHistoryItem(data, targetCard) {
+      const emptyH = historyEl.querySelector('.history-empty');
+      if (emptyH) emptyH.remove();
+
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      const q = data.transcript || '(no transcript)';
+      const tool = data.tool || (data.error ? 'error' : '?');
+      item.innerHTML = `
+        <div class="h-q" title="${escapeHtml(q)}">${escapeHtml(q)}</div>
+        <div class="h-meta">
+          <span class="history-tool">${escapeHtml(tool)}</span>
+          <span>${formatNow()}</span>
+        </div>
+      `;
+      item.addEventListener('click', () => {
+        // Highlight & scroll to the corresponding card.
+        historyEl.querySelectorAll('.history-item.active').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+        if (targetCard && targetCard.nextSibling) {
+          targetCard.nextSibling.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+      historyEl.prepend(item);
+    }
+
+    // ============================================================
+    // Utils
+    // ============================================================
+    function isHtmlDocument(s) {
+      if (!s) return false;
+      const t = s.trim().toLowerCase();
+      return t.startsWith('<!doctype html') || t.startsWith('<html');
+    }
+
+    function formatNow() {
+      const d = new Date();
+      return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     }
 
     function escapeHtml(s) {
