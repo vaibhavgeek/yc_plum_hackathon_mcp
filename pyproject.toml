@@ -1,0 +1,20 @@
+[project]
+name = "mcp-barebones"
+version = "0.1.0"
+description = "Barebones MCP server and client"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.2.0,<2.0.0",
+    "uvicorn>=0.30.0",
+    "starlette>=0.37.0",
+    "fastapi>=0.115.0",
+    "openai>=1.50.0",
+    "python-dotenv>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["server", "client"]
