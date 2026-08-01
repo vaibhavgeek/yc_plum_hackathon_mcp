@@ -1,55 +1,63 @@
-# MCP Barebones
+# MCP Voice Client
 
-Minimal Model Context Protocol server + client over HTTP (streamable transport).
+Barebones MCP server + a web voice client. Tap a mic button in your browser, speak a command, and see the raw MCP tool response.
+
+```
+Voice → Web Speech API → transcript → OpenAI (function calling)
+      → picks MCP tool + args → MCP server → response → UI
+```
 
 ## Structure
 
 ```
-server/main.py   # FastMCP server with add, echo tools + greeting resource
-client/main.py   # Client that connects, lists tools, calls them
-pyproject.toml   # Deps: mcp[cli], uvicorn, starlette
+server/main.py          # FastMCP server: add, echo tools + greeting resource
+client/main.py          # CLI client (original)
+client/web.py           # FastAPI web client backend
+client/static/index.html  # Voice UI (mic button + response cards)
+pyproject.toml
+.env.example
 ```
 
 ## Setup
 
 ```bash
-# Using uv (recommended)
 uv sync
-
-# Or with pip
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
+cp .env.example .env
+# edit .env and paste a fresh OPENAI_API_KEY
 ```
 
 ## Run
 
-Terminal 1 — start the server (listens on http://127.0.0.1:8000/mcp):
+Terminal 1 — MCP server:
 
 ```bash
 uv run python -m server.main
 ```
 
-Terminal 2 — run the client:
+Terminal 2 — web voice client:
+
+```bash
+uv run python -m client.web
+```
+
+Open http://127.0.0.1:5173 in Chrome (Web Speech API requires Chromium-based browsers). Tap the mic, say a command:
+
+- "add two and three"
+- "echo hello world"
+
+Response card shows: transcript, tool chosen, arguments, and the raw MCP response.
+
+## CLI variant (no UI)
 
 ```bash
 uv run python -m client.main
 ```
 
-Expected output:
+## Security note
 
-```
-Tools:
-  - add: Add two numbers.
-  - echo: Echo a message back.
-
-add(2, 3) -> 5
-echo('hello mcp') -> Echo: hello mcp
-
-greeting://world -> Hello, world!
-```
+`.env` is gitignored. Never commit or paste your API key in chat — rotate it at https://platform.openai.com/api-keys if you do.
 
 ## Extend
 
-- Add a tool: decorate a function with `@mcp.tool()` in `server/main.py`.
-- Add a resource: decorate with `@mcp.resource("scheme://{param}")`.
-- Add a prompt: decorate with `@mcp.prompt()`.
+- Add a tool: decorate a function with `@mcp.tool()` in `server/main.py`. The web UI picks it up automatically on the next request (tools are listed fresh each call).
+- Swap the LLM model: change `gpt-4o-mini` in `client/web.py`.

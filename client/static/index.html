@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MCP Voice Client</title>
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --panel: #14181d;
+      --border: #232a33;
+      --text: #e8ecf1;
+      --muted: #8a94a3;
+      --accent: #4ea1ff;
+      --accent-hot: #ff4e6a;
+      --ok: #7fd67f;
+      --err: #ff8080;
+      --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .app {
+      width: 100%;
+      max-width: 640px;
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 32px;
+    }
+    .mic-wrap {
+      display: flex;
+      justify-content: center;
+      margin: 40px 0;
+    }
+    .mic {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-size: 48px;
+      cursor: pointer;
+      transition: all 120ms ease;
+      box-shadow: 0 8px 24px rgba(78, 161, 255, 0.3);
+    }
+    .mic:hover { transform: scale(1.03); }
+    .mic:active { transform: scale(0.97); }
+    .mic.recording {
+      background: var(--accent-hot);
+      box-shadow: 0 8px 24px rgba(255, 78, 106, 0.4);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 8px 24px rgba(255, 78, 106, 0.4); }
+      50%      { box-shadow: 0 8px 32px rgba(255, 78, 106, 0.8); }
+    }
+    .status {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      min-height: 20px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 12px;
+    }
+    .label {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .transcript { font-size: 15px; }
+    .tool-name {
+      font-family: var(--mono);
+      color: var(--accent);
+      font-size: 14px;
+    }
+    pre {
+      font-family: var(--mono);
+      font-size: 13px;
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text);
+    }
+    .result pre { color: var(--ok); }
+    .error pre  { color: var(--err); }
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      padding: 32px 0;
+    }
+    .manual {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .manual input {
+      flex: 1;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .manual button {
+      background: var(--border);
+      border: none;
+      color: var(--text);
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .manual button:hover { background: #2c343f; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <h1>MCP Voice Client</h1>
+    <div class="sub">Tap the mic, say a command. Example: "add 2 and 3", "echo hello world".</div>
+
+    <div class="mic-wrap">
+      <button id="mic" class="mic" title="Hold to speak">🎤</button>
+    </div>
+    <div id="status" class="status">Ready.</div>
+
+    <div class="manual">
+      <input id="manual-input" placeholder="Or type a command and press Enter…" />
+      <button id="manual-send">Send</button>
+    </div>
+
+    <div id="results" style="margin-top: 24px;">
+      <div class="empty">No commands yet.</div>
+    </div>
+  </div>
+
+  <script>
+    const micBtn = document.getElementById('mic');
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+    const manualInput = document.getElementById('manual-input');
+    const manualSend = document.getElementById('manual-send');
+
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let recording = false;
+
+    if (SR) {
+      recognition = new SR();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        statusEl.textContent = `Heard: "${transcript}"`;
+        sendTranscript(transcript);
+      };
+      recognition.onerror = (e) => {
+        statusEl.textContent = `Speech error: ${e.error}`;
+        setRecording(false);
+      };
+      recognition.onend = () => setRecording(false);
+    } else {
+      statusEl.textContent = 'Web Speech API not supported. Use the text box below.';
+      micBtn.disabled = true;
+      micBtn.style.opacity = 0.4;
+    }
+
+    function setRecording(on) {
+      recording = on;
+      micBtn.classList.toggle('recording', on);
+    }
+
+    micBtn.addEventListener('click', () => {
+      if (!recognition) return;
+      if (recording) {
+        recognition.stop();
+      } else {
+        setRecording(true);
+        statusEl.textContent = 'Listening…';
+        try { recognition.start(); } catch (_) { setRecording(false); }
+      }
+    });
+
+    manualSend.addEventListener('click', () => {
+      if (manualInput.value.trim()) sendTranscript(manualInput.value.trim());
+    });
+    manualInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && manualInput.value.trim()) sendTranscript(manualInput.value.trim());
+    });
+
+    async function sendTranscript(transcript) {
+      statusEl.textContent = 'Thinking…';
+      try {
+        const res = await fetch('/voice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transcript }),
+        });
+        const data = await res.json();
+        renderResult(data);
+        statusEl.textContent = 'Ready.';
+        manualInput.value = '';
+      } catch (err) {
+        statusEl.textContent = 'Error: ' + err.message;
+      }
+    }
+
+    function renderResult(data) {
+      const empty = resultsEl.querySelector('.empty');
+      if (empty) empty.remove();
+
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const parts = [];
+      parts.push(`<div class="label">Transcript</div><div class="transcript">${escapeHtml(data.transcript || '')}</div>`);
+
+      if (data.error) {
+        parts.push(`<div class="label" style="margin-top:12px">Error</div><div class="error"><pre>${escapeHtml(data.error)}</pre></div>`);
+      } else {
+        parts.push(`<div class="label" style="margin-top:12px">Tool</div><div class="tool-name">${escapeHtml(data.tool)}(${escapeHtml(JSON.stringify(data.arguments))})</div>`);
+        const cls = data.isError ? 'error' : 'result';
+        const output = (data.result || []).join('\n');
+        parts.push(`<div class="label" style="margin-top:12px">MCP Response</div><div class="${cls}"><pre>${escapeHtml(output)}</pre></div>`);
+      }
+
+      card.innerHTML = parts.join('');
+      resultsEl.prepend(card);
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+  </script>
+</body>
+</html>
