@@ -635,47 +635,28 @@
     .composer-inner {
       max-width: 780px;
       margin: 0 auto;
-      background: var(--bg-panel);
-      border: 1px solid var(--border-strong);
-      border-radius: var(--radius);
-      padding: 10px 12px 10px 18px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      box-shadow: var(--shadow-lg);
-      transition: border-color 160ms ease, box-shadow 160ms ease;
+      justify-content: center;
+      padding: 4px 0;
     }
-    .composer-inner:focus-within {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12), var(--shadow-lg);
-    }
-    #manual-input {
-      flex: 1;
-      border: none;
-      outline: none;
-      background: transparent;
-      color: var(--ink);
-      font-family: inherit;
-      font-size: 15px;
-      padding: 10px 0;
-      min-width: 0;
-    }
-    #manual-input::placeholder { color: var(--muted-2); }
     .composer-btn {
       background: transparent;
       border: none;
       color: var(--muted);
       cursor: pointer;
-      width: 38px;
-      height: 38px;
+      width: 72px;
+      height: 72px;
       border-radius: 50%;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       transition: all 140ms ease;
+      box-shadow: var(--shadow-lg);
     }
-    .composer-btn:hover { background: var(--bg-sunk); color: var(--ink); }
-    .composer-btn svg { width: 18px; height: 18px; }
+    .composer-btn:hover { background: var(--bg-sunk); color: var(--ink); transform: scale(1.03); }
+    .composer-btn:active { transform: scale(0.97); }
+    .composer-btn svg { width: 30px; height: 30px; }
     .composer-btn.mic {
       background: var(--accent);
       color: white;
@@ -687,20 +668,15 @@
     }
     @keyframes recPulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
-      50%      { box-shadow: 0 0 0 10px rgba(217, 119, 6, 0);   }
+      50%      { box-shadow: 0 0 0 16px rgba(217, 119, 6, 0);   }
     }
-    .composer-btn.send {
-      background: var(--ink);
-      color: white;
-    }
-    .composer-btn.send:hover { background: var(--ink-2); color: white; }
     .composer-btn:disabled { opacity: 0.4; cursor: not-allowed; }
     .composer-hint {
       max-width: 780px;
-      margin: 10px auto 0;
+      margin: 12px auto 0;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       font-size: 11.5px;
       color: var(--muted);
     }
@@ -738,7 +714,7 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true">H</div>
           <div>
-            Hawkeye
+            AfterCare
             <div class="brand-sub">voice health assistant</div>
           </div>
         </div>
@@ -806,7 +782,7 @@
     <!-- Composer ------------------------------------------------- -->
     <div class="composer">
       <div class="composer-inner">
-        <button id="mic" class="composer-btn mic" type="button" title="Hold to speak" aria-label="Record voice command">
+        <button id="mic" class="composer-btn mic" type="button" title="Tap to speak" aria-label="Record voice command">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
             <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
@@ -814,22 +790,9 @@
             <line x1="8"  y1="23" x2="16" y2="23"/>
           </svg>
         </button>
-        <input id="manual-input" placeholder="Ask about the patient, visualize a diagnosis, or check insurance…" autocomplete="off" />
-        <button id="stop-audio" class="composer-btn" type="button" title="Stop voice playback" aria-label="Stop voice playback">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="6" y="6" width="12" height="12" rx="2"/>
-          </svg>
-        </button>
-        <button id="manual-send" class="composer-btn send" type="button" title="Send" aria-label="Send">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-        </button>
       </div>
       <div class="composer-hint">
         <div id="status">Ready to listen.</div>
-        <div><kbd>Enter</kbd> to send · <kbd>Space</kbd> mic on focus</div>
       </div>
     </div>
   </div>
@@ -842,19 +805,17 @@
     const statusEl      = document.getElementById('status');
     const resultsEl     = document.getElementById('results');
     const historyEl     = document.getElementById('history');
-    const manualInput   = document.getElementById('manual-input');
-    const manualSend    = document.getElementById('manual-send');
-    const stopAudioBtn  = document.getElementById('stop-audio');
     const exampleChips  = document.getElementById('example-chips');
 
     let currentAudio = null;
 
-    stopAudioBtn.addEventListener('click', () => {
+    // Stop any currently-playing TTS audio. Called when a new command is sent.
+    function stopAudioPlayback() {
       if (currentAudio) {
         try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (_) {}
       }
       document.querySelectorAll('.spoken-section.playing').forEach(el => el.classList.remove('playing'));
-    });
+    }
 
     // Example chip clicks -> populate input & send
     exampleChips?.addEventListener('click', (e) => {
@@ -908,19 +869,11 @@
       }
     });
 
-    manualSend.addEventListener('click', () => {
-      if (manualInput.value.trim()) sendTranscript(manualInput.value.trim());
-    });
-    manualInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && manualInput.value.trim()) sendTranscript(manualInput.value.trim());
-    });
-
     // ============================================================
     // Send pipeline (SSE)
     // ============================================================
     async function sendTranscript(transcript) {
       statusEl.textContent = 'Thinking…';
-      manualInput.value = '';
 
       // Remove empty state.
       const empty = resultsEl.querySelector('.empty-state');

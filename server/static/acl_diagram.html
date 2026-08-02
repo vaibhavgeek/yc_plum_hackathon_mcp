@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Understanding your ACL</title>
+<style>
+  :root{
+    --page-1:#eef3f8;
+    --page-2:#e2eaf1;
+    --panel:#ffffff;
+    --diagram-bg:#f3f8fb;
+    --text:#2b3945;
+    --muted:#5a6b79;
+    --faint:#8595a2;
+    --line:#c3d0da;
+
+    --bone:#f2ecdf;
+    --bone-shade:#e6dcc7;
+    --bone-line:#d6cab1;
+
+    --teal:#159b8c;
+    --teal-dark:#0f7a6e;
+    --teal-soft:#c9e7e2;
+
+    --red:#c4696b;
+    --red-dark:#a8514f;
+    --red-soft:#efd6d6;
+
+    --pcl:#9fb2c2;
+    --meniscus:#c4d1d8;
+    --patella:#cdd8e1;
+
+    --radius:20px;
+    --shadow:0 10px 30px rgba(45,70,95,.10), 0 2px 6px rgba(45,70,95,.06);
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{margin:0;padding:0;}
+
+  body{
+    font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--text);
+    background:linear-gradient(160deg,var(--page-1),var(--page-2));
+    min-height:100vh;
+    padding:28px 18px 40px;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+
+  .card{
+    max-width:740px;
+    margin:0 auto;
+    background:var(--panel);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:30px 30px 26px;
+    animation:rise .5s ease both;
+  }
+
+  @keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+
+  header{margin-bottom:20px;}
+  h1{
+    font-size:clamp(22px,4.6vw,30px);
+    line-height:1.15;
+    letter-spacing:-.02em;
+    margin:0 0 6px;
+    font-weight:700;
+  }
+  .subtitle{
+    margin:0;
+    color:var(--muted);
+    font-size:clamp(14px,2.6vw,16px);
+  }
+
+  /* Toggle */
+  .toggle-wrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    margin:6px 0 14px;
+  }
+  .segmented{
+    display:inline-flex;
+    background:#e8eef4;
+    border-radius:999px;
+    padding:5px;
+    gap:4px;
+    width:100%;
+    max-width:360px;
+  }
+  .seg-btn{
+    flex:1;
+    border:0;
+    background:transparent;
+    font:inherit;
+    font-weight:600;
+    font-size:15px;
+    color:var(--muted);
+    padding:10px 8px;
+    border-radius:999px;
+    cursor:pointer;
+    transition:background .2s ease,color .2s ease,box-shadow .2s ease;
+  }
+  .seg-btn:hover{color:var(--text);}
+  .seg-btn:focus-visible{outline:3px solid var(--teal-soft);outline-offset:2px;}
+  .seg-btn[aria-pressed="true"]{
+    background:var(--panel);
+    color:var(--teal-dark);
+    box-shadow:0 1px 4px rgba(45,70,95,.18);
+  }
+  #btnTorn[aria-pressed="true"]{color:var(--red-dark);}
+  .toggle-hint{font-size:13px;color:var(--faint);}
+
+  /* Diagram */
+  .diagram{
+    background:var(--diagram-bg);
+    border-radius:16px;
+    padding:14px 8px 6px;
+  }
+  svg.knee{
+    display:block;
+    width:100%;
+    max-width:520px;
+    height:auto;
+    margin:0 auto;
+  }
+  svg.knee text{font-family:inherit;}
+
+  .lbl{
+    font-size:15.5px;
+    fill:var(--muted);
+    paint-order:stroke;
+    stroke:var(--diagram-bg);
+    stroke-width:3.4px;
+    stroke-linejoin:round;
+  }
+  .lbl .term{fill:var(--faint);}
+  .lbl-title{font-weight:600;}
+  .lbl-acl .lbl-title{fill:var(--teal-dark);font-weight:700;}
+  .leader{stroke:var(--line);stroke-width:1.4;fill:none;}
+  .leader-acl{stroke:var(--teal);stroke-width:1.6;}
+  .dot{fill:var(--line);}
+  .dot-acl{fill:var(--teal);}
+
+  .structure{cursor:pointer;transition:opacity .25s ease;}
+  .structure:focus-visible{outline:none;}
+  .structure:focus-visible .focus-ring{opacity:1;}
+  .focus-ring{opacity:0;}
+  svg[data-active] .structure{opacity:.32;}
+  svg[data-active] .structure.is-active{opacity:1;}
+  .is-active .lbl-title{text-decoration:underline;text-underline-offset:3px;}
+
+  /* ACL swap */
+  #aclHealthy,#aclTorn{transition:opacity .35s ease;}
+  #aclTorn{opacity:0;}
+  .state-torn #aclHealthy{opacity:0;pointer-events:none;}
+  .state-torn #aclTorn{opacity:1;}
+  #aclHealthy{pointer-events:auto;}
+  .state-torn #aclTorn{pointer-events:auto;}
+  .state-healthy #aclTorn{pointer-events:none;}
+
+  .diff-note{
+    text-align:center;
+    font-size:14.5px;
+    color:var(--muted);
+    margin:10px auto 2px;
+    max-width:46ch;
+    min-height:2.6em;
+  }
+  .diff-note strong{color:var(--teal-dark);font-weight:600;}
+  .state-torn .diff-note strong{color:var(--red-dark);}
+
+  /* Info box */
+  .info{
+    background:#f6f9fb;
+    border:1px solid #e4ecf2;
+    border-radius:14px;
+    padding:13px 16px;
+    margin:16px 0 6px;
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    min-height:64px;
+  }
+  .info .tag{
+    font-size:12.5px;
+    font-weight:700;
+    letter-spacing:.02em;
+    color:var(--teal-dark);
+    background:var(--teal-soft);
+    padding:3px 9px;
+    border-radius:999px;
+    white-space:nowrap;
+    flex-shrink:0;
+  }
+  .info p{margin:0;font-size:14.5px;color:var(--text);}
+  .reset-btn{
+    background:none;border:0;font:inherit;font-size:13px;color:var(--teal-dark);
+    text-decoration:underline;cursor:pointer;padding:0;margin-top:2px;
+  }
+  .reset-btn:focus-visible{outline:2px solid var(--teal-soft);outline-offset:2px;border-radius:4px;}
+
+  /* Caption */
+  .caption{
+    margin:18px 0 0;
+    font-size:clamp(15px,2.8vw,16px);
+    line-height:1.62;
+    color:var(--text);
+    max-width:62ch;
+  }
+
+  .footnote{
+    margin:18px 0 0;
+    font-size:12.5px;
+    color:var(--faint);
+    border-top:1px solid #eaeff4;
+    padding-top:12px;
+  }
+
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;}
+
+  @media (max-width:480px){
+    body{padding:16px 10px 28px;}
+    .card{padding:22px 16px 20px;}
+    .lbl{font-size:16.5px;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .card{animation:none;}
+    #aclHealthy,#aclTorn,.structure,.seg-btn{transition:none;}
+  }
+</style>
+</head>
+<body>
+  <main class="card">
+    <header>
+      <h1>Understanding your ACL</h1>
+      <p class="subtitle">A simple look at the knee, and what an ACL tear means.</p>
+    </header>
+
+    <div class="toggle-wrap">
+      <div class="segmented" role="group" aria-label="Choose which view to show">
+        <button id="btnHealthy" class="seg-btn" type="button" aria-pressed="true">Healthy ACL</button>
+        <button id="btnTorn" class="seg-btn" type="button" aria-pressed="false">Torn ACL</button>
+      </div>
+      <span class="toggle-hint">Tap to compare the two.</span>
+    </div>
+
+    <div class="diagram">
+      <svg class="knee" id="knee" viewBox="0 0 480 500" role="img"
+           aria-labelledby="kneeTitle kneeDesc" data-state="healthy">
+        <title id="kneeTitle">Front view of the knee joint</title>
+        <desc id="kneeDesc">The thigh bone sits on top and the shin bone below. The ACL runs diagonally across the center of the joint.</desc>
+
+        <defs>
+          <linearGradient id="boneGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f6f1e6"/>
+            <stop offset="1" stop-color="var(--bone-shade)"/>
+          </linearGradient>
+          <linearGradient id="tibiaGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#f4efe4"/>
+            <stop offset="1" stop-color="var(--bone-shade)"/>
+          </linearGradient>
+        </defs>
+
+        <!-- ===== BONES ===== -->
+        <g class="structure" data-key="femur" tabindex="0" role="button"
+           aria-label="Thigh bone, also called the femur. Tap to learn more.">
+          <circle class="focus-ring" cx="227" cy="150" r="118" fill="none" stroke="var(--teal)" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <path d="M 182 24 L 172 150 C 160 190 150 206 150 226 C 150 250 165 266 188 266
+                   C 202 266 210 250 218 236 C 226 250 236 266 252 266 C 278 266 300 252 300 226
+                   C 300 206 292 190 282 150 L 272 24 Z"
+                fill="url(#boneGrad)" stroke="var(--bone-line)" stroke-width="1.6"/>
+        </g>
+
+        <g class="structure" data-key="tibia" tabindex="0" role="button"
+           aria-label="Shin bone, also called the tibia. Tap to learn more.">
+          <path d="M 170 300 C 168 290 182 285 205 285 C 216 285 221 279 227 279
+                   C 233 279 238 285 250 285 C 275 285 292 290 288 302
+                   C 284 330 280 360 278 400 L 274 500 L 184 500
+                   C 182 400 178 360 174 330 Z"
+                fill="url(#tibiaGrad)" stroke="var(--bone-line)" stroke-width="1.6"/>
+        </g>
+
+        <!-- fibula, faint context only -->
+        <path d="M 296 306 C 300 305 306 308 306 320 L 304 500 L 296 500
+                 C 294 360 293 330 293 312 C 293 308 294 306 296 306 Z"
+              fill="#efe8da" stroke="var(--bone-line)" stroke-width="1.2" opacity=".7"/>
+
+        <!-- ===== KNEECAP (background context) ===== -->
+        <g class="structure" data-key="patella" tabindex="0" role="button"
+           aria-label="Kneecap, also called the patella. Tap to learn more.">
+          <path d="M 194 216 C 194 204 260 204 260 216 C 262 244 248 286 227 292
+                   C 206 286 192 244 194 216 Z"
+                fill="var(--patella)" fill-opacity=".38" stroke="var(--patella)" stroke-width="1.4"/>
+        </g>
+
+        <!-- ===== MENISCUS (light) ===== -->
+        <g class="structure" data-key="meniscus" tabindex="0" role="button"
+           aria-label="Cushion pads, also called the meniscus. Tap to learn more.">
+          <path d="M 178 292 C 176 285 200 283 211 289 C 205 295 186 296 178 292 Z"
+                fill="var(--meniscus)"/>
+          <path d="M 245 289 C 256 283 280 285 278 292 C 269 296 250 295 245 289 Z"
+                fill="var(--meniscus)"/>
+        </g>
+
+        <!-- ===== PCL (behind, lighter) ===== -->
+        <g class="structure" data-key="pcl" tabindex="0" role="button"
+           aria-label="Back ligament, also called the PCL. Tap to learn more.">
+          <path d="M 200 240 C 214 258 236 276 252 292" fill="none"
+                stroke="var(--pcl)" stroke-width="14" stroke-linecap="round" opacity=".6"/>
+        </g>
+
+        <!-- ===== ACL (focus) ===== -->
+        <g class="structure" data-key="acl" tabindex="0" role="button"
+           aria-label="Support ligament, also called the ACL. This is the main focus. Tap to learn more.">
+          <!-- healthy -->
+          <g id="aclHealthy">
+            <path d="M 250 242 C 238 262 218 280 205 296" fill="none"
+                  stroke="var(--teal-dark)" stroke-width="21" stroke-linecap="round"/>
+            <path d="M 250 242 C 238 262 218 280 205 296" fill="none"
+                  stroke="var(--teal)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M 247 246 C 236 264 218 281 208 294" fill="none"
+                  stroke="#4fc0b2" stroke-width="3.5" stroke-linecap="round" opacity=".8"/>
+          </g>
+          <!-- torn -->
+          <g id="aclTorn" aria-hidden="true">
+            <ellipse cx="226" cy="271" rx="21" ry="16" fill="var(--red)" opacity=".12"/>
+            <!-- upper segment -->
+            <path d="M 250 242 C 244 252 238 260 233 266" fill="none"
+                  stroke="var(--red-dark)" stroke-width="17" stroke-linecap="round"/>
+            <path d="M 250 242 C 244 252 238 260 233 266" fill="none"
+                  stroke="var(--red)" stroke-width="11" stroke-linecap="round"/>
+            <!-- lower segment -->
+            <path d="M 205 296 C 210 288 215 282 220 277" fill="none"
+                  stroke="var(--red-dark)" stroke-width="17" stroke-linecap="round"/>
+            <path d="M 205 296 C 210 288 215 282 220 277" fill="none"
+                  stroke="var(--red)" stroke-width="11" stroke-linecap="round"/>
+            <!-- frayed tips -->
+            <g stroke="var(--red)" stroke-width="3.4" stroke-linecap="round">
+              <line x1="233" y1="266" x2="226" y2="273"/>
+              <line x1="234" y1="266" x2="234" y2="276"/>
+              <line x1="234" y1="266" x2="241" y2="272"/>
+              <line x1="220" y1="277" x2="213" y2="271"/>
+              <line x1="220" y1="277" x2="221" y2="268"/>
+              <line x1="220" y1="277" x2="228" y2="271"/>
+            </g>
+          </g>
+        </g>
+
+        <!-- ===== LABELS + LEADERS ===== -->
+        <!-- Thigh bone -->
+        <g class="structure" data-key="femur" tabindex="-1" aria-hidden="true">
+          <path class="leader" d="M 152 96 C 165 104 170 110 178 120"/>
+          <circle class="dot" cx="178" cy="120" r="2.6"/>
+          <text class="lbl" x="150" y="94" text-anchor="end">
+            <tspan class="lbl-title">Thigh bone </tspan><tspan class="term">(femur)</tspan>
+          </text>
+        </g>
+
+        <!-- Kneecap -->
+        <g class="structure" data-key="patella" tabindex="-1" aria-hidden="true">
+          <path class="leader" d="M 152 236 C 172 238 182 240 195 242"/>
+          <circle class="dot" cx="195" cy="242" r="2.6"/>
+          <text class="lbl" x="150" y="240" text-anchor="end">
+            <tspan class="lbl-title">Kneecap </tspan><tspan class="term">(patella)</tspan>
+          </text>
+        </g>
+
+        <!-- Cushion pad -->
+        <g class="structure" data-key="meniscus" tabindex="-1" aria-hidden="true">
+          <path class="leader" d="M 150 330 C 168 320 178 302 185 294"/>
+          <circle class="dot" cx="185" cy="294" r="2.6"/>
+          <text class="lbl" x="148" y="334" text-anchor="end">
+            <tspan class="lbl-title">Cushion pads </tspan><tspan class="term">(meniscus)</tspan>
+          </text>
+        </g>
+
+        <!-- Support ligament ACL (focus) -->
+        <g class="structure lbl-acl" data-key="acl" tabindex="-1" aria-hidden="true">
+          <path class="leader leader-acl" d="M 314 232 C 285 245 250 258 228 268"/>
+          <circle class="dot dot-acl" cx="228" cy="268" r="3"/>
+          <text class="lbl" x="318" y="230" text-anchor="start">
+            <tspan class="lbl-title">Support ligament </tspan><tspan class="term">(ACL)</tspan>
+          </text>
+        </g>
+
+        <!-- Back ligament PCL -->
+        <g class="structure" data-key="pcl" tabindex="-1" aria-hidden="true">
+          <path class="leader" d="M 314 300 C 290 292 260 284 240 278"/>
+          <circle class="dot" cx="240" cy="278" r="2.6"/>
+          <text class="lbl" x="318" y="304" text-anchor="start">
+            <tspan class="lbl-title">Back ligament </tspan><tspan class="term">(PCL)</tspan>
+          </text>
+        </g>
+
+        <!-- Shin bone -->
+        <g class="structure" data-key="tibia" tabindex="-1" aria-hidden="true">
+          <path class="leader" d="M 314 392 C 300 394 288 396 278 398"/>
+          <circle class="dot" cx="278" cy="398" r="2.6"/>
+          <text class="lbl" x="318" y="396" text-anchor="start">
+            <tspan class="lbl-title">Shin bone </tspan><tspan class="term">(tibia)</tspan>
+          </text>
+        </g>
+      </svg>
+
+      <p class="diff-note" id="diffNote" aria-live="polite">
+        <strong>A healthy ACL</strong> is one smooth, connected band that holds the knee steady.
+      </p>
+    </div>
+
+    <div class="info">
+      <span class="tag" id="infoTag">Learn</span>
+      <div>
+        <p id="infoText">Tap any label or part of the knee to learn what it does.</p>
+        <button class="reset-btn" id="resetBtn" type="button" hidden>Show all parts</button>
+      </div>
+    </div>
+
+    <p class="caption">
+      The ACL is a strong band inside your knee that keeps it steady when you walk, run, or turn.
+      A tear means the band has stretched too far and split apart.
+      This is a common injury, and most people heal well with the right care.
+      Your care team will guide you to the best next step for you.
+    </p>
+
+    <p class="footnote">This guide is for learning only. For advice about your own knee, please talk with your care team.</p>
+
+    <p class="sr-only" aria-live="polite" id="liveState">Showing healthy ACL.</p>
+  </main>
+
+<script>
+(function(){
+  var svg = document.getElementById('knee');
+  var btnHealthy = document.getElementById('btnHealthy');
+  var btnTorn = document.getElementById('btnTorn');
+  var diffNote = document.getElementById('diffNote');
+  var liveState = document.getElementById('liveState');
+  var infoText = document.getElementById('infoText');
+  var infoTag = document.getElementById('infoText') && document.getElementById('infoTag');
+  var resetBtn = document.getElementById('resetBtn');
+  var aclTorn = document.getElementById('aclTorn');
+
+  var descriptions = {
+    femur:   {tag:"Thigh bone", text:"Your thigh bone. It makes up the top half of the knee joint."},
+    tibia:   {tag:"Shin bone",  text:"Your shin bone. It makes up the bottom half of the knee joint."},
+    acl:     {tag:"ACL",        text:"A strong band inside the knee. It stops the shin bone from sliding forward and helps you turn and pivot safely."},
+    pcl:     {tag:"PCL",        text:"A second band that crosses behind the ACL. It stops the shin bone from sliding backward."},
+    meniscus:{tag:"Meniscus",   text:"Two soft, rubbery pads. They cushion the space where the two bones meet."},
+    patella: {tag:"Kneecap",    text:"Your kneecap. It sits in front of the joint and helps protect it."}
+  };
+
+  var diffText = {
+    healthy: '<strong>A healthy ACL</strong> is one smooth, connected band that holds the knee steady.',
+    torn: '<strong>A torn ACL</strong> splits into two frayed ends, so it can no longer hold the knee steady on its own.'
+  };
+
+  // ---- Toggle Healthy / Torn ----
+  function setState(state){
+    svg.setAttribute('data-state', state);
+    svg.classList.remove('state-healthy','state-torn');
+    svg.classList.add('state-' + state);
+    var isHealthy = state === 'healthy';
+    btnHealthy.setAttribute('aria-pressed', String(isHealthy));
+    btnTorn.setAttribute('aria-pressed', String(!isHealthy));
+    diffNote.innerHTML = diffText[state];
+    aclTorn.setAttribute('aria-hidden', String(isHealthy));
+    liveState.textContent = isHealthy ? 'Showing healthy ACL.' : 'Showing torn ACL.';
+    // if the ACL is the active/highlighted part, refresh its wording tone via description (kept same text)
+  }
+  btnHealthy.addEventListener('click', function(){ setState('healthy'); });
+  btnTorn.addEventListener('click', function(){ setState('torn'); });
+  setState('healthy');
+
+  // ---- Tap to learn ----
+  var activeKey = null;
+
+  function activate(key){
+    if(activeKey === key){ clearActive(); return; }
+    activeKey = key;
+    svg.setAttribute('data-active', key);
+    var groups = svg.querySelectorAll('.structure');
+    for(var i=0;i<groups.length;i++){
+      var g = groups[i];
+      if(g.getAttribute('data-key') === key){ g.classList.add('is-active'); }
+      else { g.classList.remove('is-active'); }
+    }
+    var d = descriptions[key];
+    infoTag.textContent = d.tag;
+    infoText.textContent = d.text;
+    resetBtn.hidden = false;
+  }
+
+  function clearActive(){
+    activeKey = null;
+    svg.removeAttribute('data-active');
+    var groups = svg.querySelectorAll('.structure.is-active');
+    for(var i=0;i<groups.length;i++){ groups[i].classList.remove('is-active'); }
+    infoTag.textContent = 'Learn';
+    infoText.textContent = 'Tap any label or part of the knee to learn what it does.';
+    resetBtn.hidden = true;
+  }
+
+  resetBtn.addEventListener('click', clearActive);
+
+  // clickable structures (only the ones with a real tabindex 0 role button need keyboard,
+  // but any element with data-key responds to click)
+  var clickables = svg.querySelectorAll('.structure');
+  for(var i=0;i<clickables.length;i++){
+    (function(el){
+      el.addEventListener('click', function(){
+        var key = el.getAttribute('data-key');
+        if(key) activate(key);
+      });
+      el.addEventListener('keydown', function(e){
+        if(e.key === 'Enter' || e.key === ' '){
+          e.preventDefault();
+          var key = el.getAttribute('data-key');
+          if(key) activate(key);
+        }
+        if(e.key === 'Escape'){ clearActive(); }
+      });
+    })(clickables[i]);
+  }
+})();
+</script>
+</body>
+</html>

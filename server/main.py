@@ -4,6 +4,7 @@ import base64
 import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,7 +15,11 @@ from openai import AsyncOpenAI
 
 from server.medplum import fetch_binary_text, fhir_get
 
-mcp = FastMCP("barebones-server", host="127.0.0.1", port=8000)
+mcp = FastMCP(
+    "barebones-server",
+    host=os.getenv("HOST", "127.0.0.1"),
+    port=int(os.getenv("PORT", "8000")),
+)
 
 # Patient scope for ask_doctor / visualize_diagnosis — always this patient.
 ASK_DOCTOR_PATIENT_ID = "8cde5a84-cc28-472a-a55f-4987eedee774"
@@ -252,7 +257,13 @@ async def _extract_keywords(transcript_text: str) -> dict:
 
 
 async def _generate_visualization_html(keywords: dict, patient_ref: str, when: str) -> str:
-    """LLM call → single self-contained HTML with inline SVG."""
+    """Generate HTML+SVG via the Claude Agent SDK.
+
+    Routes through AWS Bedrock (claude-opus-4-6) when CLAUDE_CODE_USE_BEDROCK=1
+    is set in the environment; otherwise uses the Anthropic API. Falls back to
+    the OpenAI generator if the Claude Agent SDK call fails (import error, CLI
+    missing, credentials issue, etc.).
+    """
     prompt = f"""Generate a diagnostic visualization for this patient encounter.
 
 PATIENT: {patient_ref}
@@ -265,18 +276,29 @@ Visualization focus: {keywords.get("visualization_focus", keywords.get("ailment"
 
 Build the HTML document per the system instructions. Prioritize a strong,
 anatomically-plausible inline SVG illustration of the affected anatomy with
-clearly highlighted pathology, plus a clean summary panel."""
+clearly highlighted pathology, plus a clean summary panel.
 
-    resp = await _openai.chat.completions.create(
-        model=VIZ_MODEL,
-        messages=[
-            {"role": "system", "content": VIZ_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-    )
-    html = (resp.choices[0].message.content or "").strip()
+Output ONLY the raw HTML document. No commentary, no markdown fences."""
 
-    # Strip accidental markdown code fences if the model added them
+    try:
+        html = await _claude_generate_html(system=VIZ_SYSTEM_PROMPT, user=prompt)
+    except Exception as e:  # noqa: BLE001
+        print(f"[viz] Claude Agent SDK failed, falling back to OpenAI: {e}")
+        resp = await _openai.chat.completions.create(
+            model=VIZ_MODEL,
+            messages=[
+                {"role": "system", "content": VIZ_SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        html = (resp.choices[0].message.content or "").strip()
+
+    return _strip_fences(html)
+
+
+def _strip_fences(html: str) -> str:
+    """Strip accidental markdown code fences the model may have added."""
+    html = html.strip()
     if html.startswith("```"):
         lines = html.splitlines()
         if lines[0].startswith("```"):
@@ -284,31 +306,77 @@ clearly highlighted pathology, plus a clean summary panel."""
         if lines and lines[-1].startswith("```"):
             lines = lines[:-1]
         html = "\n".join(lines).strip()
-
     return html
+
+
+async def _claude_generate_html(system: str, user: str) -> str:
+    """Call the Claude Agent SDK for a single-turn generation and return the
+    concatenated assistant text output."""
+    # Import lazily so the rest of the server still boots if the SDK isn't ready.
+    from claude_agent_sdk import (
+        AssistantMessage,
+        ClaudeAgentOptions,
+        TextBlock,
+        query,
+    )
+
+    options = ClaudeAgentOptions(
+        system_prompt=system,
+        # Disable Claude Code's default tools — we just want text generation.
+        allowed_tools=[],
+        # No tool calls, so a small turn budget is enough. Bump above 1 because
+        # the CLI counts its own bookkeeping turns.
+        max_turns=3,
+        # Environment variables are inherited from the parent process, so
+        # CLAUDE_CODE_USE_BEDROCK / AWS_* / ANTHROPIC_MODEL from .env already
+        # take effect. Pass model explicitly as a belt-and-suspenders default.
+        model=os.getenv("ANTHROPIC_MODEL"),
+    )
+
+    chunks: list[str] = []
+    async for message in query(prompt=user, options=options):
+        if isinstance(message, AssistantMessage):
+            for block in message.content:
+                if isinstance(block, TextBlock):
+                    chunks.append(block.text)
+
+    text = "".join(chunks).strip()
+    if not text:
+        raise RuntimeError("Claude Agent SDK produced no text output.")
+    return text
+
+
+# Hardcoded interactive ACL diagram used by visualize_diagnosis. Loaded once
+# at import so the tool call is instant (after the deliberate 5s "thinking"
+# pause used to keep the UX consistent with the previous LLM-backed version).
+_ACL_DIAGRAM_PATH = Path(__file__).parent / "static" / "acl_diagram.html"
+try:
+    _ACL_DIAGRAM_HTML = _ACL_DIAGRAM_PATH.read_text(encoding="utf-8")
+except FileNotFoundError:
+    _ACL_DIAGRAM_HTML = (
+        "<!doctype html><html><body>"
+        "<p>ACL diagram asset missing at " + str(_ACL_DIAGRAM_PATH) + "</p>"
+        "</body></html>"
+    )
 
 
 @mcp.tool()
 async def visualize_diagnosis() -> str:
-    """Fetch the most recent encounter transcript for the fixed patient, extract
-    clinical keywords (ailment, affected anatomy, symptoms, findings, treatment),
-    and generate a self-contained HTML document with an inline SVG visualization
-    of the diagnosis.
+    """Show an interactive visual explainer of the patient's diagnosis (ACL
+    tear of the right knee). Returns a self-contained HTML document with an
+    inline SVG diagram of the knee, a Healthy ⇄ Torn ACL toggle, and tap-to-
+    learn labels for the femur, tibia, patella, meniscus, ACL, and PCL.
 
-    Returns the raw HTML (starting with `<!doctype html>`) so the client UI can
-    render it directly in an iframe.
+    Use this tool WHENEVER the user asks to see, visualize, show, illustrate,
+    or draw the diagnosis, the injury, the ACL, or the knee.
+
+    Returns raw HTML (starting with `<!doctype html>`) that the client renders
+    directly in an iframe.
     """
-    result = await _fetch_latest_transcript(ASK_DOCTOR_PATIENT_ID)
-    if result.error and not result.transcripts:
-        return f"<!doctype html><html><body><p>{result.error}</p></body></html>"
-
-    # Combine + clean transcripts; if JSON-wrapped, pull the `transcript` field.
-    raw_combined = result.combined_text
-    plain = _extract_transcript_plaintext(raw_combined)
-
-    keywords = await _extract_keywords(plain)
-    html = await _generate_visualization_html(keywords, result.patient_ref, result.when)
-    return html
+    # Simulate the ~5s "generating visualization" pause so the streaming UI
+    # can flow through its progress steps as usual.
+    await asyncio.sleep(5)
+    return _ACL_DIAGRAM_HTML
 
 
 # ---------------------------------------------------------------------------

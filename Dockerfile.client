@@ -1,0 +1,26 @@
+# Web client: FastAPI + uvicorn, calls MCP server + OpenAI
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml README.md ./
+
+# client/web.py imports server.conversation_log, so ship the server package too.
+COPY server ./server
+COPY client ./client
+
+RUN uv pip install --system --no-cache .
+
+# Cloud Run injects PORT (default 8080); app binds 0.0.0.0 in this container.
+ENV HOST=0.0.0.0 \
+    PORT=8080
+
+EXPOSE 8080
+
+CMD ["python", "-m", "client.web"]

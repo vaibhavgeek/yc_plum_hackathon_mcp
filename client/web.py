@@ -50,9 +50,10 @@ TOOL_STEPS: dict[str, list[str]] = {
         "Loading the transcript…",
     ],
     "visualize_diagnosis": [
-        "Fetching the latest encounter from Medplum…",
-        "Extracting clinical keywords with GPT…",
-        "Generating an SVG diagnostic visualization…",
+        "Reviewing the patient's diagnosis…",
+        "Mapping the affected anatomy…",
+        "Rendering the interactive knee diagram…",
+        "Preparing healthy vs. torn ACL views…",
     ],
     "insurance_check": [
         "Fetching the latest encounter from Medplum…",
@@ -435,4 +436,7 @@ async def speak(req: VoiceRequest) -> dict:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="127.0.0.1", port=WEB_PORT)
+    # Cloud Run injects PORT; fall back to WEB_PORT for local dev.
+    port = int(os.getenv("PORT", str(WEB_PORT)))
+    host = os.getenv("HOST", "127.0.0.1")
+    uvicorn.run(app, host=host, port=port)
