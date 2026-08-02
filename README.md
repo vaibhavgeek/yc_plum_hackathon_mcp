@@ -7,23 +7,6 @@ Voice → Web Speech API → transcript → OpenAI (function calling)
       → picks MCP tool + args → MCP server → response → UI
 ```
 
-## Live deployment
-
-Both services run on Google Cloud Run in `us-central1`:
-
-| Service    | URL                                                      |
-|------------|----------------------------------------------------------|
-| Web client | https://mcp-client-127827893419.us-central1.run.app      |
-| MCP server | https://mcp-server-127827893419.us-central1.run.app/mcp  |
-
-Open the web client URL in Chrome, tap the mic, and try:
-
-- "Ask the doctor about the diagnosis"
-- "Visualize the diagnosis"
-- "What is my copay?"
-- "How much is my deductible?"
-- "Am I covered for surgery?"
-
 ## Structure
 
 ```
